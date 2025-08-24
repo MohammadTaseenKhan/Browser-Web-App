@@ -1,6 +1,6 @@
-export const config = {
-  runtime: "nodejs",
-};
+import zlib from "zlib";
+
+export const config = { runtime: "nodejs" };
 
 export default async function handler(req, res) {
   try {
@@ -8,24 +8,28 @@ export default async function handler(req, res) {
     if (!url) return res.status(400).send("Missing url parameter");
 
     const targetUrl = decodeURIComponent(url);
+
     const response = await fetch(targetUrl, {
       headers: {
         "User-Agent":
           req.headers["user-agent"] ||
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Accept-Encoding": "gzip, deflate, br",
       },
     });
 
-    // Copy headers
+    // Copy headers except frame-blockers and content-encoding
     response.headers.forEach((value, key) => {
-      if (!["content-security-policy", "x-frame-options"].includes(key.toLowerCase())) {
+      if (!["content-security-policy", "x-frame-options", "content-encoding"].includes(key.toLowerCase())) {
         res.setHeader(key, value);
       }
     });
 
     res.status(response.status);
 
-    if (response.headers.get("content-type")?.includes("text/html")) {
+    const contentType = response.headers.get("content-type") || "";
+
+    if (contentType.includes("text/html")) {
       let text = await response.text();
 
       // Inject <base> for relative paths
@@ -34,17 +38,9 @@ export default async function handler(req, res) {
 
       res.send(text);
     } else {
-      // Stream non-HTML (images, CSS, JS, etc.)
-      const reader = response.body.getReader();
-      async function push() {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          res.write(Buffer.from(value));
-        }
-        res.end();
-      }
-      push();
+      // Binary content
+      const buffer = Buffer.from(await response.arrayBuffer());
+      res.end(buffer);
     }
   } catch (err) {
     console.error("Proxy error:", err);
