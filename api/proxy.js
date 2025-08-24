@@ -1,22 +1,21 @@
 // api/proxy.js
-import fetch from "node-fetch";
 
 export default async function handler(req, res) {
   try {
-    const targetUrl = req.query.url;
+    const { url } = req.query;
 
-    if (!targetUrl) {
+    if (!url) {
       return res.status(400).send("Missing url parameter");
     }
 
-    // Fetch the target site
-    const response = await fetch(targetUrl, {
+    // Fetch target site using native fetch (Node 18+)
+    const response = await fetch(url, {
       headers: {
         "User-Agent": req.headers["user-agent"] || "Mozilla/5.0",
       },
     });
 
-    // Clone headers except frame-blockers
+    // Copy headers, removing frame-blockers
     const headers = {};
     response.headers.forEach((value, key) => {
       if (
@@ -28,10 +27,12 @@ export default async function handler(req, res) {
       }
     });
 
-    // Pipe response
+    // Convert to buffer before sending
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
     res.writeHead(response.status, headers);
-    const buffer = await response.arrayBuffer();
-    res.end(Buffer.from(buffer));
+    res.end(buffer);
   } catch (err) {
     console.error("Proxy error:", err);
     res.status(500).send("Proxy failed: " + err.message);
