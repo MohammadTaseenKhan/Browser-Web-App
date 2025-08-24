@@ -1,7 +1,7 @@
 // api/proxy.js
 
 export const config = {
-  runtime: "nodejs", // force Node.js instead of Edge
+  runtime: "nodejs", // force Node.js runtime
 };
 
 export default async function handler(req, res) {
@@ -36,8 +36,24 @@ export default async function handler(req, res) {
 
     res.status(response.status);
 
-    // Stream body
-    response.body.pipe(res);
+    // Convert Web ReadableStream → Node.js stream
+    if (response.body) {
+      const reader = response.body.getReader();
+      const encoder = new TextEncoder();
+
+      async function push() {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(Buffer.from(value));
+        }
+        res.end();
+      }
+
+      push();
+    } else {
+      res.end();
+    }
   } catch (err) {
     console.error("Proxy error:", err);
     res.status(500).send("Proxy failed: " + err.message);
