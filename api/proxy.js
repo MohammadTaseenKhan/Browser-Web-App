@@ -8,14 +8,16 @@ export default async function handler(req, res) {
       return res.status(400).send("Missing url parameter");
     }
 
-    // Fetch target site using native fetch (Node 18+)
+    // Fetch with Node 18 native fetch
     const response = await fetch(url, {
       headers: {
         "User-Agent": req.headers["user-agent"] || "Mozilla/5.0",
       },
     });
 
-    // Copy headers, removing frame-blockers
+    let contentType = response.headers.get("content-type") || "";
+
+    // Copy headers, strip iframe blockers
     const headers = {};
     response.headers.forEach((value, key) => {
       if (
@@ -27,7 +29,27 @@ export default async function handler(req, res) {
       }
     });
 
-    // Convert to buffer before sending
+    // Text content (HTML/CSS/JS)
+    if (contentType.includes("text/html")) {
+      let text = await response.text();
+
+      // Fix relative URLs (basic replacement)
+      const baseUrl = new URL(url);
+      text = text.replace(
+        / (src|href)=["'](\/[^"']*)["']/g,
+        (match, attr, path) => {
+          return ` ${attr}="${baseUrl.origin}${path}"`;
+        }
+      );
+
+      res.writeHead(response.status, {
+        ...headers,
+        "content-type": "text/html; charset=utf-8",
+      });
+      return res.end(text);
+    }
+
+    // Binary (images, videos, etc.)
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
