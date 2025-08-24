@@ -1,35 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Telegram In‑App Browser</title>
-<link rel="stylesheet" href="/styles.css" />
-<!-- Telegram WebApp SDK -->
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegram Mini Browser</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div id="app">
-<header>
-<input id="urlInput" type="text" placeholder="Enter URL (https://...)" />
-<button id="goBtn">Go</button>
-<button id="backBtn">Back</button>
-<button id="fwdBtn">Forward</button>
-<button id="reloadBtn">Reload</button>
-<label class="toggle">
-<input type="checkbox" id="proxyToggle" /> Proxy
-</label>
-<button id="extBtn">Open Externally</button>
-</header>
+  <div id="toolbar">
+    <input type="text" id="urlInput" placeholder="Enter URL..." />
+    <button id="goBtn">Go</button>
+    <button id="backBtn">←</button>
+    <button id="fwdBtn">→</button>
+    <button id="reloadBtn">⟳</button>
+    <button id="homeBtn">🏠</button>
+  </div>
+  <iframe id="browser" src="" frameborder="0"></iframe>
 
-
-<div id="status"></div>
-
-
-<iframe id="view" sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe>
-</div>
-
-
-<script src="/app.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
