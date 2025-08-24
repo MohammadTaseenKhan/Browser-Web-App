@@ -1,5 +1,9 @@
 // api/proxy.js
 
+export const config = {
+  runtime: "nodejs", // force Node.js instead of Edge
+};
+
 export default async function handler(req, res) {
   try {
     const { url } = req.query;
@@ -8,53 +12,32 @@ export default async function handler(req, res) {
       return res.status(400).send("Missing url parameter");
     }
 
-    // Fetch with Node 18 native fetch
-    const response = await fetch(url, {
+    const targetUrl = decodeURIComponent(url);
+
+    const response = await fetch(targetUrl, {
       headers: {
-        "User-Agent": req.headers["user-agent"] || "Mozilla/5.0",
+        "User-Agent":
+          req.headers["user-agent"] ||
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        Range: req.headers.range || undefined, // support video/audio
       },
     });
 
-    let contentType = response.headers.get("content-type") || "";
-
-    // Copy headers, strip iframe blockers
-    const headers = {};
+    // Copy headers (remove frame-blockers)
     response.headers.forEach((value, key) => {
       if (
         !["content-security-policy", "x-frame-options"].includes(
           key.toLowerCase()
         )
       ) {
-        headers[key] = value;
+        res.setHeader(key, value);
       }
     });
 
-    // Text content (HTML/CSS/JS)
-    if (contentType.includes("text/html")) {
-      let text = await response.text();
+    res.status(response.status);
 
-      // Fix relative URLs (basic replacement)
-      const baseUrl = new URL(url);
-      text = text.replace(
-        / (src|href)=["'](\/[^"']*)["']/g,
-        (match, attr, path) => {
-          return ` ${attr}="${baseUrl.origin}${path}"`;
-        }
-      );
-
-      res.writeHead(response.status, {
-        ...headers,
-        "content-type": "text/html; charset=utf-8",
-      });
-      return res.end(text);
-    }
-
-    // Binary (images, videos, etc.)
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    res.writeHead(response.status, headers);
-    res.end(buffer);
+    // Stream body
+    response.body.pipe(res);
   } catch (err) {
     console.error("Proxy error:", err);
     res.status(500).send("Proxy failed: " + err.message);
